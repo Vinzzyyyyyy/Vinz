@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft Bot Dashboard Pro</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    @font-face {
+      font-family: 'MinecraftFont';
+      src: url('https://cdn.jsdelivr.net/gh/South-System/Minecraft-Font@master/Minecraftia.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(23, 32, 54, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --input-bg: #070a12;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #10b981;
+      --accent: #8b5cf6;
+      --text-main: #f8fafc;
+      --text-muted: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); padding: 24px; min-height: 100vh; background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08), transparent 40%); }
+
+    header { margin-bottom: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+    header h1 span { background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .header-btns { display: flex; gap: 10px; }
+    .grid-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 28px; }
+
+    .card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 14px; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; }
+
+    .input-group { display: flex; flex-direction: column; gap: 10px; }
+    .input-row { display: flex; gap: 10px; }
+    
+    input { background: var(--input-bg); border: 1px solid var(--card-border); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; width: 100%; transition: border-color 0.2s; }
+    input:focus { border-color: var(--primary); }
+
+    button { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s ease; }
+    button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    button.btn-danger { background: var(--danger); }
+    button.btn-danger:hover { background: var(--danger-hover); }
+    button.btn-accent { background: var(--accent); }
+    button.btn-warning { background: #f59e0b; }
+    button.btn-warning:hover { background: #d97706; }
+
+    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .modal-content { background: #131c31; border: 1px solid var(--card-border); padding: 24px; border-radius: 16px; width: 92%; max-width: 550px; max-height: 85vh; display: flex; flex-direction: column; gap: 16px; }
+
+    .tablist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; overflow-y: auto; max-height: 60vh; padding-right: 4px; }
+    .tab-card { background: var(--input-bg); border: 1px solid var(--card-border); padding: 10px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
+    .tab-card .p-name { font-weight: 600; color: #f8fafc; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tab-card .p-ping { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: rgba(16, 185, 129, 0.15); color: var(--success); }
+
+    .bot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
+    .bot-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
+    
+    .badge-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-status.online { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-status.offline { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .activity-badge { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+
+    .stat-bars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .stat-bar-container { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: bold; }
+    .stat-bar { flex: 1; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; border: 1px solid var(--card-border); }
+    .stat-fill-health { height: 100%; background: #ef4444; width: 0%; transition: width 0.3s ease; }
+    .stat-fill-food { height: 100%; background: #f59e0b; width: 0%; transition: width 0.3s ease; }
+
+    .info-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .coords-badge, .ping-badge { background: var(--input-bg); border: 1px solid var(--card-border); padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-family: monospace; display: flex; align-items: center; gap: 4px; }
+    .coords-badge { color: #38bdf8; }
+    .ping-badge { color: #10b981; }
+
+    .hotbar-selector { display: flex; gap: 4px; background: var(--input-bg); padding: 6px; border-radius: 8px; border: 1px solid var(--card-border); }
+    .hotbar-btn { flex: 1; padding: 6px 0; font-size: 0.75rem; background: #1e293b; color: #94a3b8; border: 1px solid var(--card-border); border-radius: 6px; }
+    .hotbar-btn:hover { background: var(--primary); color: white; }
+
+    .inv-container { background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; }
+    .inv-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin-bottom: 4px; }
+    .inv-slot { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 6px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all 0.15s; overflow: hidden; }
+    .inv-slot:hover { border-color: var(--primary); transform: scale(1.05); }
+    .inv-slot.has-item { background: rgba(255, 255, 255, 0.07); }
+    .inv-slot img { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+    .inv-slot-text { font-size: 0.55rem; color: #e2e8f0; font-weight: bold; text-align: center; line-height: 1; word-break: break-all; padding: 2px; }
+    .inv-count { position: absolute; bottom: 2px; right: 3px; font-weight: 700; color: #fbbf24; font-size: 0.65rem; text-shadow: 1px 1px 2px #000; }
+
+    .chat-box {
+      height: 220px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid #222;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: 'MinecraftFont', monospace;
+      font-size: 13px;
+      line-height: 1.35;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      color: #ffffff;
+      text-shadow: 1.5px 1.5px 0px #000000;
+      image-rendering: pixelated;
+    }
+
+    .chat-line { word-wrap: break-word; white-space: pre-wrap; }
+    
+    .mc-gui-modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); align-items: center; justify-content: center; }
+    .mc-gui-container { 
+      background-color: #c6c6c6; 
+      border: 3px solid; 
+      border-color: #ffffff #555555 #555555 #ffffff; 
+      padding: 12px; 
+      border-radius: 0; 
+      width: 95%; 
+      max-width: 380px; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.9); 
+      font-family: 'MinecraftFont', monospace; 
+      color: #373737; 
+      image-rendering: pixelated; 
+    }
+    .mc-gui-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 2px solid #8b8b8b; padding-bottom: 4px; }
+    .mc-gui-title { font-size: 0.9rem; font-weight: bold; color: #373737; text-shadow: none; word-break: break-all; }
+    .mc-gui-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; background: #8b8b8b; padding: 4px; border: 2px solid; border-color: #373737 #ffffff #ffffff #373737; }
+    .mc-gui-slot { 
+      background: #8b8b8b; 
+      border: 2px solid; 
+      border-color: #373737 #ffffff #ffffff #373737; 
+      aspect-ratio: 1; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      position: relative; 
+      cursor: pointer; 
+    }
+    .mc-gui-slot:hover { background: #bebebe; outline: 2px solid #ffffa0; z-index: 2; }
+    .mc-gui-slot img { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+    .mc-gui-count { position: absolute; bottom: 1px; right: 2px; font-weight: bold; color: #ffffff; font-size: 0.75rem; text-shadow: 1.5px 1.5px 0 #000; font-family: 'MinecraftFont', monospace; }
+  </style>
+  <style>
+    /* Minecraft workstation skin */
+    :root { --bg-dark:#14100b; --card-bg:#2c261d; --card-border:#6f6048; --input-bg:#17130e; --primary:#4c7f2a; --primary-hover:#609c35; --accent:#77512b; --text-muted:#c4b99c; }
+    body { padding:18px; background:#17130e url('https://mcasset.cloud/1.21.4/assets/minecraft/textures/block/deepslate.png') repeat; image-rendering:pixelated; }
+    body::before { content:''; position:fixed; inset:0; pointer-events:none; background:rgba(10,8,5,.72); z-index:-1; }
+    header { background:#282219; border:3px solid; border-color:#85775e #17130e #17130e #85775e; padding:16px 18px; margin-bottom:18px; }
+    header h1, .card h3, .mc-gui-container, .chat-box { font-family:MinecraftFont, monospace; letter-spacing:.02em; }
+    header h1 span { -webkit-text-fill-color:#f0c75e; background:none; }
+    .card, .bot-card { border-radius:0; background:#2c261d; border:3px solid; border-color:#786b54 #17130e #17130e #786b54; box-shadow:7px 7px 0 rgba(0,0,0,.45); backdrop-filter:none; }
+    .bot-card { gap:14px; }
+    button { border-radius:0; border:2px solid; border-color:#87b75c #263d17 #263d17 #87b75c; background:#4f7e2d; font-family:MinecraftFont, monospace; text-transform:uppercase; box-shadow:inset 0 -2px rgba(0,0,0,.25); }
+    button:hover { background:#659e3e; transform:none; filter:brightness(1.12); }
+    button.btn-danger { background:#9a3831; border-color:#d07166 #551a17 #551a17 #d07166; }
+    button.btn-accent { background:#7b5a31; border-color:#b79763 #392713 #392713 #b79763; }
+    button.btn-warning { background:#9b7025; border-color:#d4a549 #513710 #513710 #d4a549; }
+    input { border-radius:0; border:2px solid; border-color:#15110d #796d57 #796d57 #15110d; background:#15110d; font-family:MinecraftFont, monospace; }
+    .inv-container { border-radius:0; background:#19150f; border:2px solid #6b5c45; }
+    .inv-slot { border-radius:0; background:#8b8b8b; border:2px solid; border-color:#373737 #fff #fff #373737; }
+    .inv-slot.has-item { background:#8b8b8b; }
+    .inv-slot:hover { border-color:#ffffa0; transform:none; outline:1px solid #ffffa0; }
+    .hotbar-selector { border-radius:0; padding:4px; background:#15110d; }
+    .hotbar-btn { border-radius:0; background:#4c4438; padding:7px 0; }
+    .chat-box { border-radius:0; background:rgba(0,0,0,.88); }
+    .badge-status, .activity-badge, .coords-badge, .ping-badge { border-radius:0; font-family:MinecraftFont, monospace; }
+    .quick-commands { display:flex; gap:6px; flex-wrap:wrap; padding-top:2px; }
+    .quick-commands button { padding:6px 9px; font-size:.66rem; }
+    .move-hotbar { display:grid; grid-template-columns:repeat(9,1fr); gap:4px; }
+    .move-hotbar button { padding:8px 0; }
+    @media (max-width:500px) { body{padding:10px}.bot-grid{grid-template-columns:1fr}.grid-top{grid-template-columns:1fr}.bot-card,.card{padding:14px} }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1><span>Minecraft Bot</span> Dashboard</h1>
+    <div class="header-btns">
+      <button class="btn-accent" onclick="openTabList()">Server Tab List</button>
+    </div>
+  </header>
+
+  <div class="grid-top">
+    <div class="card">
+      <h3>Broadcast Ke Semua Bot</h3>
+      <div class="input-row">
+        <input type="text" id="globalMsg" placeholder="Pesan/Command (/survival)...">
+        <button onclick="sendBroadcast()">Kirim All</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tambah Bot Baru</h3>
+      <form id="addBotForm" class="input-group">
+        <div class="input-row">
+          <input type="text" id="username" placeholder="Username Bot" required>
+          <input type="text" id="password" placeholder="Password (/register)">
+        </div>
+        <div class="input-row">
+          <input type="text" id="host" placeholder="Host (localhost)" value="localhost">
+          <input type="number" id="port" placeholder="Port (25565)" value="25565">
+        </div>
+        <div class="input-row">
+          <button type="submit" style="white-space: nowrap; width: 100%;">+ Tambah</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: #cbd5e1;">Daftar Bot Aktif</h2>
+  <div id="botContainer" class="bot-grid"></div>
+
+  <div id="tabListModal" class="modal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="tabListTitle" style="color: #fff;">Player Online</h3>
+        <button class="btn-danger" style="padding: 4px 10px;" onclick="closeModal('tabListModal')">✕</button>
+      </div>
+      <div class="tablist-grid" id="tabListContainer">Loading...</div>
+    </div>
+  </div>
+
+  <div id="itemDetailModal" class="modal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="itemModalTitle" style="color: #fff;">Detail Item</h3>
+        <button class="btn-danger" style="padding: 4px 10px;" onclick="closeModal('itemDetailModal')">✕</button>
+      </div>
+      <div style="display:flex; gap:16px; align-items:center; background:var(--input-bg); padding:12px; border-radius:8px; border:1px solid var(--card-border);">
+        <img id="itemModalIcon" src="" style="width:48px; height:48px; object-fit:contain; image-rendering:pixelated;" alt="Item">
+        <div>
+          <h4 id="itemModalName" style="color:#f8fafc; font-size:1rem;">-</h4>
+          <p id="itemModalType" style="color:var(--text-muted); font-size:0.8rem;">-</p>
+          <p id="itemModalEnchants" style="color:#f59e0b; font-size:0.8rem; margin-top:4px;"></p>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:0.8rem; color:var(--text-muted);">Jumlah Drop Item:</label>
+        <div class="input-row">
+          <input type="number" id="dropCountInput" min="1" value="1">
+          <button class="btn-danger" onclick="executeDropItem()">Drop Item</button>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:0.8rem; color:var(--text-muted);">Pindah item ke Hotbar:</label>
+        <div id="moveHotbarButtons" class="move-hotbar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mcGuiModal" class="mc-gui-modal">
+    <div class="mc-gui-container">
+      <div class="mc-gui-header">
+        <span id="mcGuiTitle" class="mc-gui-title">Chest / Shop GUI</span>
+        <button style="background:#ef4444; color:#fff; border:none; padding:2px 8px; border-radius:0; font-weight:bold; cursor:pointer;" onclick="closeWindowGui()">✕</button>
+      </div>
+      <div id="mcGuiGrid" class="mc-gui-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentSelectedBot = null;
+    let currentSelectedSlot = null;
+    let activeWindowBot = null;
+
+    // Cache inventory di memory browser untuk fix klik item ber-JSON
+    window.inventoryCache = {};
+
+    // LOCAL STORAGE UNTUK CHAT KLIEN SAJA
+    function saveLocalChat(username, sender, text, rawJson) {
+      const key = `chat_${username}`;
+      let chats = [];
+      try { chats = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){}
+      chats.push({ sender, text, rawJson, time: Date.now() });
+      if (chats.length > 100) chats.shift();
+      localStorage.setItem(key, JSON.stringify(chats));
+    }
+
+    function loadLocalChats(username) {
+      const key = `chat_${username}`;
+      try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){ return []; }
+    }
+
+    function renderBotCardHtml(bot) {
+      return `
+        <div class="bot-card" id="bot-card-${bot.username}">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size: 1.1rem;">${bot.username}</strong>
+                <span id="activity-${bot.username}" class="activity-badge">Idle</span>
+              </div>
+              <span id="status-${bot.username}" class="badge-status ${bot.active ? 'online' : 'offline'}">
+                <span id="status-text-${bot.username}">${bot.active ? 'Online' : 'Offline'}</span>
+              </span>
+            </div>
+            
+            <div class="stat-bars">
+              <div class="stat-bar-container">
+                <span style="color:#ef4444; width:50px;">HP: <span id="hp-text-${bot.username}">20</span></span>
+                <div class="stat-bar">
+                  <div id="hp-fill-${bot.username}" class="stat-fill-health" style="width: 100%;"></div>
+                </div>
+              </div>
+              <div class="stat-bar-container">
+                <span style="color:#f59e0b; width:50px;">Food: <span id="food-text-${bot.username}">20</span></span>
+                <div class="stat-bar">
+                  <div id="food-fill-${bot.username}" class="stat-fill-food" style="width: 100%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-bar">
+              <div class="coords-badge" id="coords-badge-${bot.username}">
+                XYZ: <span id="coords-text-${bot.username}">0, 0, 0</span>
+              </div>
+              <div class="ping-badge" id="ping-badge-${bot.username}">
+                PING: <span id="ping-text-${bot.username}">0 ms</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="toggle-btn-${bot.username}" class="${bot.active ? 'btn-danger' : ''}" onclick="toggleBot('${bot.username}')">
+              ${bot.active ? 'Matikan' : 'Aktifkan'}
+            </button>
+            <button class="btn-accent" onclick="toggleFishing('${bot.username}')">Mancing</button>
+            <button class="btn-warning" onclick="toggleAttack('${bot.username}')">Mob Hostile</button>
+            <button class="btn-accent" onclick="equipBestArmor('${bot.username}')">Armor Best</button>
+            <button class="btn-danger" onclick="deleteBot('${bot.username}')">Hapus</button>
+          </div>
+
+          <div>
+            <div class="quick-commands">
+              <button onclick="quickCommand('${bot.username}', '/ah')">/AH</button>
+              <button onclick="quickCommand('${bot.username}', '/cf')">/CF</button>
+              <button onclick="quickCommand('${bot.username}', '/home')">/HOME</button>
+              <button onclick="quickCommand('${bot.username}', '/spawn')">/SPAWN</button>
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:6px;">Hotbar Slot:</span>
+            <div class="hotbar-selector">
+              ${[1,2,3,4,5,6,7,8,9].map(num => `<button class="hotbar-btn" onclick="setHotbar('${bot.username}', ${num-1})">${num}</button>`).join('')}
+            </div>
+          </div>
+
+          <div class="inv-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.75rem; color:var(--text-muted);">
+              <span>INVENTORY (REALTIME)</span>
+              <button style="padding:2px 8px; font-size:0.65rem;" onclick="refreshInventory('${bot.username}')">🔄 SYNC INVENTORY</button>
+            </div>
+            <div class="inv-grid" id="inv-${bot.username}">
+              ${generateEmptyGrid(bot.username)}
+            </div>
+          </div>
+
+          <div>
+            <div class="chat-box" id="chat-${bot.username}"></div>
+            <div class="input-row" style="margin-top: 8px;">
+              <input type="text" id="input-${bot.username}" placeholder="Pesan / Command (/shop)..." onkeydown="if(event.key==='Enter') sendBotMsg('${bot.username}')">
+              <button onclick="sendBotMsg('${bot.username}')">Kirim</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadBots() {
+      const res = await fetch('/api/bots');
+      const bots = await res.json();
+      const container = document.getElementById('botContainer');
+      container.innerHTML = '';
+      bots.forEach(bot => {
+        container.innerHTML += renderBotCardHtml(bot);
+      });
+      // Load chats secara lokal saat bot di-render
+      bots.forEach(bot => {
+        const chats = loadLocalChats(bot.username);
+        chats.forEach(msg => appendChat(bot.username, msg.sender, msg.text, msg.rawJson));
+      });
+    }
+
+    function generateEmptyGrid(username) {
+      let html = '';
+      for (let i = 0; i < 36; i++) {
+        html += `<div class="inv-slot" title="Slot ${i}"><span style="color:#334155; font-size:0.6rem;">-</span></div>`;
+      }
+      return html;
+    }
+
+    function setHotbar(username, slot) {
+      socket.emit('set_hotbar_slot', { username, slot });
+    }
+
+    function refreshInventory(username) {
+      socket.emit('get_inventory', username);
+    }
+
+    async function toggleBot(username) {
+      const toggleBtn = document.getElementById(`toggle-btn-${username}`);
+      const isCurrentlyOnline = toggleBtn.classList.contains('btn-danger');
+
+      await fetch('/api/bots/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, active: !isCurrentlyOnline })
+      });
+    }
+
+    async function deleteBot(username) {
+      if (confirm(`Apakah Anda yakin ingin menghapus bot ${username}?`)) {
+        const res = await fetch(`/api/bots/${username}`, { method: 'DELETE' });
+        if (res.ok) {
+          localStorage.removeItem(`chat_${username}`); // Hapus histori chat juga
+        } else {
+          const err = await res.json();
+          alert(err.error);
+        }
+      }
+    }
+
+    document.getElementById('addBotForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        host: document.getElementById('host').value,
+        port: document.getElementById('port').value
+      };
+
+      const res = await fetch('/api/bots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        document.getElementById('addBotForm').reset();
+      } else {
+        const err = await res.json();
+        alert(err.error);
+      }
+    });
+
+    function sendBotMsg(username) {
+      const input = document.getElementById(`input-${username}`);
+      if (!input.value) return;
+      socket.emit('send_command', { username, message: input.value });
+      input.value = '';
+    }
+
+    async function sendBroadcast() {
+      const input = document.getElementById('globalMsg');
+      if (!input.value) return;
+      await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input.value })
+      });
+      input.value = '';
+    }
+
+    function toggleFishing(username) {
+      socket.emit('toggle_fishing', username);
+    }
+
+    function toggleAttack(username) {
+      socket.emit('toggle_attack', username);
+    }
+
+    function quickCommand(username, command) {
+      socket.emit('send_command', { username, message: command });
+    }
+
+    function equipBestArmor(username) {
+      socket.emit('equip_best_armor', username);
+    }
+
+    function getItemIconUrl(itemName) {
+      if (!itemName) return '';
+      const cleanName = itemName.toLowerCase().trim();
+      return `https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/item/${cleanName}.png`;
+    }
+
+    function useBlockTextureFallback(img, itemName) {
+      if (img.dataset.blockFallback) { img.style.display = 'none'; return; }
+      img.dataset.blockFallback = '1';
+      img.src = `https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/block/${itemName}.png`;
+    }
+
+    // MEMPERBAIKI BUG INVENTORY MODAL: Mengambil item dari object cache memori
+    function showItemDetails(username, displayIndex) {
+      const item = window.inventoryCache[username]?.[displayIndex];
+      if (!item) return;
+
+      currentSelectedBot = username;
+      currentSelectedSlot = item.slot; // ID asli slot Mineflayer
+
+      document.getElementById('itemModalTitle').innerText = item.displayName || item.name;
+      document.getElementById('itemModalName').innerText = item.displayName || item.name;
+      document.getElementById('itemModalType').innerText = `ID: minecraft:${item.name} | Stack: x${item.count}`;
+      document.getElementById('itemModalEnchants').innerText = item.enchantments && item.enchantments.length > 0 ? `Enchants: ${item.enchantments.join(', ')}` : 'Tanpa Enchantment';
+
+      const iconImg = document.getElementById('itemModalIcon');
+      iconImg.style.display = 'block';
+      iconImg.dataset.blockFallback = '';
+      iconImg.onerror = () => useBlockTextureFallback(iconImg, item.name);
+      iconImg.src = getItemIconUrl(item.name);
+
+      const input = document.getElementById('dropCountInput');
+      input.max = item.count;
+      input.value = item.count;
+
+      document.getElementById('moveHotbarButtons').innerHTML = Array.from({ length: 9 }, (_, index) =>
+        `<button onclick="moveItemToHotbar(${index})">${index + 1}</button>`
+      ).join('');
+
+      document.getElementById('itemDetailModal').style.display = 'flex';
+    }
+
+    function executeDropItem() {
+      const count = parseInt(document.getElementById('dropCountInput').value) || 1;
+      if (currentSelectedBot && currentSelectedSlot !== null) {
+        socket.emit('drop_item_count', { username: currentSelectedBot, slot: currentSelectedSlot, count });
+        closeModal('itemDetailModal');
+      }
+    }
+
+    function moveItemToHotbar(hotbarSlot) {
+      if (currentSelectedBot && currentSelectedSlot !== null) {
+        socket.emit('move_to_hotbar', { username: currentSelectedBot, sourceSlot: currentSelectedSlot, hotbarSlot });
+        closeModal('itemDetailModal');
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    async function openTabList() {
+      const modal = document.getElementById('tabListModal');
+      const container = document.getElementById('tabListContainer');
+      const title = document.getElementById('tabListTitle');
+      modal.style.display = 'flex';
+      container.innerHTML = 'Memuat Player...';
+
+      const res = await fetch('/api/tablist');
+      const data = await res.json();
+
+      if (!data.players || data.players.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); padding:10px;">Tidak ada bot aktif yang terhubung ke server.</div>';
+        return;
+      }
+
+      title.innerText = `Player Online (${data.count})`;
+      container.innerHTML = '';
+      data.players.forEach(p => {
+        container.innerHTML += `
+          <div class="tab-card">
+            <span class="p-name" title="${escapeHtml(p.username)}">${escapeHtml(p.username)}</span>
+            <span class="p-ping">${p.ping} ms</span>
+          </div>
+        `;
+      });
+    }
+
+    function parseMinecraftFormatting(rawText, jsonObj = null) {
+      let result = '';
+      if (jsonObj) {
+        result = parseMinecraftJsonObj(jsonObj);
+      }
+      if (!result || result.trim() === '') {
+        result = parseSectionCodes(rawText || '');
+      }
+
+      return result;
+    }
+
+    function parseMinecraftJsonObj(obj) {
+      if (!obj) return '';
+      if (typeof obj === 'string') return parseSectionCodes(obj);
+      if (typeof obj === 'number' || typeof obj === 'boolean') return escapeHtml(String(obj));
+
+      let html = '';
+
+      const colorMap = {
+        'black': '#000000', 'dark_blue': '#0000AA', 'dark_green': '#00AA00', 'dark_aqua': '#00AAAA',
+        'dark_red': '#AA0000', 'dark_purple': '#AA00AA', 'gold': '#FFAA00', 'gray': '#AAAAAA',
+        'dark_gray': '#555555', 'blue': '#5555FF', 'green': '#55FF55', 'aqua': '#55FFFF',
+        'red': '#FF5555', 'light_purple': '#FF55FF', 'yellow': '#FFFF55', 'white': '#FFFFFF'
+      };
+
+      let style = '';
+      if (obj.color) {
+        const hexColor = colorMap[obj.color] || (obj.color.startsWith('#') ? obj.color : null);
+        if (hexColor) style += `color: ${hexColor};`;
+      }
+      if (obj.bold) style += 'font-weight: bold;';
+      if (obj.italic) style += 'font-style: italic;';
+      if (obj.underlined) style += 'text-decoration: underline;';
+
+      let textContent = '';
+      if (obj.text !== undefined && obj.text !== null) {
+        textContent = parseSectionCodes(String(obj.text));
+      } else if (obj.translate !== undefined && obj.translate !== null) {
+        textContent = parseSectionCodes(String(obj.translate));
+      }
+
+      if (Array.isArray(obj.with) && obj.with.length > 0) {
+        let withArray = obj.with.map(w => parseMinecraftJsonObj(w));
+        
+        if (textContent.includes('%s') || /%\d+\$s/.test(textContent)) {
+          textContent = textContent.replace(/%(\d+)\$s/g, (match, index) => {
+            const idx = parseInt(index, 10) - 1;
+            return withArray[idx] !== undefined ? withArray[idx] : '';
+          });
+
+          let withIndex = 0;
+          textContent = textContent.replace(/%s/g, () => {
+            if (withIndex < withArray.length) {
+              const replacement = withArray[withIndex];
+              withIndex++;
+              return replacement;
+            }
+            return '';
+          });
+        } else {
+          textContent = textContent + ' ' + withArray.join(' ');
+        }
+      }
+
+      if (style) {
+        html += `<span style="${style}">${textContent}</span>`;
+      } else {
+        html += textContent;
+      }
+
+      if (Array.isArray(obj.extra)) {
+        obj.extra.forEach(child => {
+          html += parseMinecraftJsonObj(child);
+        });
+      }
+
+      return html;
+    }
+
+    function parseSectionCodes(text) {
+      if (!text) return '';
+      const colorCodes = {
+        '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
+        '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
+        '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
+        'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+      };
+
+      const parts = text.split(/§([0-9a-fk-or])/gi);
+      let html = '';
+      let currentColor = null;
+      let isBold = false;
+
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 1) {
+          const code = parts[i].toLowerCase();
+          if (colorCodes[code]) {
+            currentColor = colorCodes[code];
+          } else if (code === 'l') {
+            isBold = true;
+          } else if (code === 'r') {
+            currentColor = null;
+            isBold = false;
+          }
+        } else {
+          if (parts[i]) {
+            let style = '';
+            if (currentColor) style += `color:${currentColor};`;
+            if (isBold) style += `font-weight:bold;`;
+
+            if (style) {
+              html += `<span style="${style}">${escapeHtml(parts[i])}</span>`;
+            } else {
+              html += escapeHtml(parts[i]);
+            }
+          }
+        }
+      }
+      return html;
+    }
+
+    function appendChat(username, sender, text, rawJson = null) {
+      const chatBox = document.getElementById(`chat-${username}`);
+      if (chatBox) {
+        const line = document.createElement('div');
+        line.className = 'chat-line';
+
+        let formattedContent = parseMinecraftFormatting(text, rawJson);
+        let senderPrefix = '';
+
+        if (sender === 'YOU') {
+          senderPrefix = `<span style="color:#10b981; font-weight:bold;">[YOU]</span> `;
+        } else if (sender === 'SYSTEM') {
+          senderPrefix = `<span style="color:#8b5cf6; font-weight:bold;">[SYSTEM]</span> `;
+        }
+
+        line.innerHTML = `${senderPrefix}${formattedContent}`;
+        chatBox.appendChild(line);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }
+
+    socket.on('window_open', (data) => {
+      activeWindowBot = data.username;
+      const modal = document.getElementById('mcGuiModal');
+      const titleEl = document.getElementById('mcGuiTitle');
+      const gridEl = document.getElementById('mcGuiGrid');
+
+      if (data.title) {
+        titleEl.innerText = parseSectionCodes(data.title).replace(/<[^>]*>?/gm, '') || 'Shop / Container GUI';
+      } else {
+        titleEl.innerText = `Shop / Container GUI (${data.username})`;
+      }
+
+      gridEl.innerHTML = '';
+      data.slots.forEach((item, index) => {
+        if (item) {
+          const iconUrl = getItemIconUrl(item.name);
+          gridEl.innerHTML += `
+            <div class="mc-gui-slot" title="${escapeHtml(item.displayName || item.name)} (Klik untuk Beli/Interaksi)" onclick="clickWindowSlot(${item.slot})">
+              <img src="${iconUrl}" onerror="useBlockTextureFallback(this, '${item.name}')">
+              <span class="mc-gui-count">${item.count > 1 ? item.count : ''}</span>
+            </div>
+          `;
+        } else {
+          gridEl.innerHTML += `<div class="mc-gui-slot" onclick="clickWindowSlot(${index})"></div>`;
+        }
+      });
+
+      modal.style.display = 'flex';
+    });
+
+    socket.on('window_close', () => {
+      document.getElementById('mcGuiModal').style.display = 'none';
+      activeWindowBot = null;
+    });
+
+    function clickWindowSlot(slot) {
+      if (activeWindowBot !== null) {
+        socket.emit('click_window_slot', { username: activeWindowBot, slot });
+      }
+    }
+
+    function closeWindowGui() {
+      if (activeWindowBot !== null) {
+        socket.emit('close_window', { username: activeWindowBot });
+      }
+      document.getElementById('mcGuiModal').style.display = 'none';
+    }
+
+    socket.on('bot_added', (botData) => {
+      const container = document.getElementById('botContainer');
+      if (!document.getElementById(`bot-card-${botData.username}`)) {
+        container.innerHTML += renderBotCardHtml(botData);
+        // Load chats if available
+        const chats = loadLocalChats(botData.username);
+        chats.forEach(msg => appendChat(botData.username, msg.sender, msg.text, msg.rawJson));
+      }
+    });
+
+    socket.on('bot_removed', ({ username }) => {
+      const el = document.getElementById(`bot-card-${username}`);
+      if (el) el.remove();
+    });
+
+    // Handle chat dari server (dan simpan ke localStorage otomatis)
+    socket.on('chat_msg', ({ username, sender, text, rawJson }) => {
+      saveLocalChat(username, sender, text, rawJson);
+      appendChat(username, sender, text, rawJson);
+    });
+
+    socket.on('bot_coords', ({ username, x, y, z, ping, isSpawn }) => {
+      const coordsText = document.getElementById(`coords-text-${username}`);
+      const pingText = document.getElementById(`ping-text-${username}`);
+
+      if (coordsText) {
+        if (isSpawn) {
+          coordsText.innerHTML = `<span style="color:#ef4444; font-weight:bold;">DI SPAWN</span> (${x}, ${y}, ${z})`;
+        } else {
+          coordsText.innerText = `${x}, ${y}, ${z}`;
+        }
+      }
+
+      if (pingText) {
+        pingText.innerText = `${ping} ms`;
+      }
+    });
+
+    socket.on('bot_activity', ({ username, activity }) => {
+      const actBadge = document.getElementById(`activity-${username}`);
+      if (actBadge) actBadge.innerText = activity;
+    });
+
+    socket.on('bot_health', ({ username, health, food }) => {
+      const hpText = document.getElementById(`hp-text-${username}`);
+      const foodText = document.getElementById(`food-text-${username}`);
+      const hpFill = document.getElementById(`hp-fill-${username}`);
+      const foodFill = document.getElementById(`food-fill-${username}`);
+
+      if (hpText && hpFill) {
+        hpText.innerText = health;
+        hpFill.style.width = `${(health / 20) * 100}%`;
+      }
+      if (foodText && foodFill) {
+        foodText.innerText = food;
+        foodFill.style.width = `${(food / 20) * 100}%`;
+      }
+    });
+
+    socket.on('bot_status', ({ username, status }) => {
+      const statusEl = document.getElementById(`status-${username}`);
+      const statusText = document.getElementById(`status-text-${username}`);
+      const toggleBtn = document.getElementById(`toggle-btn-${username}`);
+
+      if (statusEl && statusText) {
+        statusText.innerText = status;
+        statusEl.className = `badge-status ${status === 'Online' ? 'online' : 'offline'}`;
+      }
+      if (toggleBtn) {
+        if (status === 'Online') {
+          toggleBtn.innerText = 'Matikan';
+          toggleBtn.className = 'btn-danger';
+        } else {
+          toggleBtn.innerText = 'Aktifkan';
+          toggleBtn.className = '';
+        }
+      }
+    });
+
+    // BUG INVENTORY FIXED: Data inventory disimpan di cache (bukan stringify ke atribut tag HTML)
+    socket.on('inventory_data', ({ username, slots }) => {
+      const invBox = document.getElementById(`inv-${username}`);
+      if (!invBox || !slots) return;
+
+      window.inventoryCache[username] = slots;
+      invBox.innerHTML = '';
+      
+      slots.forEach((item, index) => {
+        if (item) {
+          const iconUrl = getItemIconUrl(item.name);
+          invBox.innerHTML += `
+            <div class="inv-slot has-item" title="${escapeHtml(item.displayName || item.name)}" onclick='showItemDetails("${username}", ${index})'>
+              <img src="${iconUrl}" onerror="useBlockTextureFallback(this, '${item.name}'); this.nextElementSibling.style.display='block';">
+              <span class="inv-slot-text" style="display:none;">${escapeHtml((item.displayName || item.name).substring(0, 5))}</span>
+              <span class="inv-count">x${item.count}</span>
+            </div>
+          `;
+        } else {
+          invBox.innerHTML += `<div class="inv-slot" title="Slot Kosong"><span style="color:#334155; font-size:0.6rem;">-</span></div>`;
+        }
+      });
+    });
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    loadBots();
+  </script>
+</body>
+</html>
